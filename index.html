@@ -29,7 +29,6 @@
   .copy-btn { background: linear-gradient(135deg, #11998e, #38ef7d); }
   .done-btn { background: linear-gradient(135deg, #e53935, #b71c1c); }
 
-  /* Modal */
   .modal-overlay {
     position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,.7); display: none; justify-content: center; align-items: center;
@@ -42,7 +41,6 @@
   #emailInput:focus { outline: none; border-color: #2575fc; }
   #submitBtn { width: 100%; padding: 14px; font-size: 1rem; font-weight: bold; color: #fff; background: linear-gradient(135deg, #6a11cb, #2575fc); border: none; border-radius: 12px; cursor: pointer; }
 
-  /* Big Alert */
   .big-alert-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; background: rgba(0,0,0,.85); display: none; justify-content: center; align-items: center; z-index: 10000; padding: 20px; }
   .big-alert-overlay.show { display: flex !important; }
   .big-alert-box { background: linear-gradient(135deg, #1e3c72, #2a5298); border: 2px solid #ffd200; border-radius: 25px; padding: 40px 30px; max-width: 400px; width: 100%; text-align: center; box-shadow: 0 0 60px rgba(255, 210, 0, .6); }
@@ -52,6 +50,15 @@
 
   .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); background: #222; color: #fff; padding: 12px 25px; border-radius: 12px; border: 1px solid #38ef7d; opacity: 0; transition: all .4s ease; pointer-events: none; z-index: 10001; }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* مؤشر صغير للـ polling (اختياري) */
+  #liveDot {
+    position: fixed; bottom: 12px; right: 12px;
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #38ef7d; box-shadow: 0 0 8px #38ef7d;
+    opacity: .8;
+  }
+  #liveDot.off { background: #e53935; box-shadow: 0 0 8px #e53935; }
 </style>
 </head>
 <body>
@@ -65,7 +72,6 @@
     <p class="empty">لا توجد إيميلات بعد</p>
   </div>
 
-  <!-- نافذة الإضافة -->
   <div id="modal" class="modal-overlay">
     <div class="modal">
       <h2>اكتب الإيميل</h2>
@@ -74,7 +80,6 @@
     </div>
   </div>
 
-  <!-- تنبيه كبير (لكل المستخدمين) -->
   <div id="bigAlert" class="big-alert-overlay">
     <div class="big-alert-box">
       <div class="icon">🔔</div>
@@ -84,23 +89,25 @@
   </div>
 
   <div class="toast" id="toast">تم</div>
+  <div id="liveDot" title="حالة التحديث التلقائي"></div>
 
-  <!-- Supabase SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    // ننتظر تحميل الصفحة بالكامل لضمان وجود كل العناصر
     window.addEventListener('load', () => {
-      // ============ بيانات مشروعك ============
       const SUPABASE_URL = 'https://ylcntstoajptlplhedsg.supabase.co';
       const SUPABASE_ANON_KEY = 'sb_publishable_Ys-DwMFKoOxxXY-f9Xktzg_VT9MhlqZ';
 
-      // ============ عناصر DOM ============
+      // ============ إعدادات ============
+      const POLL_INTERVAL_MS = 250; // ربع ثانية
+      const RENDER_DEBOUNCE_MS = 60; // تأخير بسيط لتجميع التحديثات
+
       const modal        = document.getElementById('modal');
       const emailInput   = document.getElementById('emailInput');
       const bigAlert     = document.getElementById('bigAlert');
       const bigAlertText = document.getElementById('bigAlertText');
+      const listEl       = document.getElementById('list');
+      const liveDot      = document.getElementById('liveDot');
 
-      // ============ Toast ============
       let toastTimer;
       function showToast(msg) {
         const t = document.getElementById('toast');
@@ -110,110 +117,184 @@
         toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
       }
 
-      // ============ نافذة الإضافة ============
+      // ============ فتح/إغلاق النافذة ============
       document.getElementById('addBtn').addEventListener('click', () => {
-        console.log('Add button clicked'); // سجل للتأكد من عمل الزر
         modal.classList.add('show');
         emailInput.value = '';
         setTimeout(() => emailInput.focus(), 80);
       });
+      modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('show'); });
+      document.getElementById('bigAlertOk').addEventListener('click', () => bigAlert.classList.remove('show'));
 
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.classList.remove('show');
-      });
-
-      document.getElementById('bigAlertOk').addEventListener('click', () => {
-        bigAlert.classList.remove('show');
-      });
-
-      // ============ إعداد Supabase ============
+      // ============ Supabase ============
       let supabase = null;
       let alertChannel = null;
       let channelReady = false;
 
+      // نسخة محلية للحالة المعروضة: Map<id, email>
+      const currentEmails = new Map();
+      // منع التكرار عند التزامن بين Realtime و Polling
+      const pendingAdds = new Set();
+
       try {
-        if (!window.supabase || !window.supabase.createClient) {
-          throw new Error('مكتبة Supabase لم تُحمّل. تأكد من اتصالك بالإنترنت.');
-        }
-        console.log('Initializing Supabase...');
+        if (!window.supabase || !window.supabase.createClient) throw new Error('مكتبة Supabase لم تُحمّل');
         supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // 🛠️ الإصلاح الرئيسي: جعل القناة عامة (public) باستخدام private: false
-        // وack: true لتأكيد الإرسال
+        // قناة التنبيهات (Broadcast)
         alertChannel = supabase.channel('site-alerts', {
-          config: {
-            broadcast: {
-              self: false,   // المستخدم لا يستقبل تنبيهه الخاص
-              ack: true      // تأكيد استلام الخادم للرسالة
-            },
-            private: false   // 🔓 قناة عامة ليتمكن أي شخص من الاستقبال
-          }
+          config: { broadcast: { self: false, ack: true }, private: false }
         });
-
         alertChannel.on('broadcast', { event: 'alert' }, (payload) => {
-          console.log('Broadcast received:', payload);
           const msg = (payload && payload.payload && payload.payload.message) || 'اقبل الطلب';
           bigAlertText.textContent = msg;
           bigAlert.classList.add('show');
         });
-
-        alertChannel.subscribe((status) => {
-          console.log('Realtime status:', status);
-          if (status === 'SUBSCRIBED') {
-            channelReady = true;
-            console.log('✅ Channel ready for alerts');
-          } else if (status === 'CHANNEL_ERROR') {
-            console.error('❌ Channel error');
-            showToast('فشل الاتصال بقناة التنبيهات');
-          }
-        });
+        alertChannel.subscribe((s) => { if (s === 'SUBSCRIBED') channelReady = true; });
 
       } catch (err) {
         console.error('Supabase init error:', err);
         showToast('تحذير: تعذر الاتصال بقاعدة البيانات');
       }
 
-      // ============ تحميل القائمة ============
-      async function loadEmails() {
-        if (!supabase) {
-          console.warn('Supabase not initialized, skipping load.');
-          return;
-        }
+      // ============ جلب من السيرفر ============
+      let isFetching = false;
+      let lastFetchOk = true;
+
+      async function fetchEmails() {
+        if (!supabase || isFetching) return;
+        isFetching = true;
         try {
           const { data, error } = await supabase
             .from('emails')
-            .select('*')
+            .select('id,email,created_at')
             .order('created_at', { ascending: false });
 
           if (error) throw error;
-          renderList(data || []);
+
+          lastFetchOk = true;
+          liveDot.classList.remove('off');
+          applyServerState(data || []);
         } catch (err) {
-          console.error('Load error:', err);
-          showToast('خطأ في التحميل: ' + (err.message || ''));
+          lastFetchOk = false;
+          liveDot.classList.add('off');
+          // ما نعرض toast كل 250ms — فقط في الكونسول
+          console.warn('Poll fetch error:', err.message || err);
+        } finally {
+          isFetching = false;
         }
       }
 
-      function renderList(emails) {
-        const list = document.getElementById('list');
-        list.innerHTML = '';
-        if (!emails.length) {
-          list.innerHTML = '<p class="empty">لا توجد إيميلات بعد</p>';
+      // ============ مزامنة الحالة المعروضة مع السيرفر ============
+      function applyServerState(serverEmails) {
+        const serverMap = new Map();
+        serverEmails.forEach(e => serverMap.set(e.id, e));
+
+        // 1) حذف ما اختفى من السيرفر
+        for (const id of Array.from(currentEmails.keys())) {
+          if (!serverMap.has(id)) {
+            removeEmailRow(id, false); // بدون animation قوية عند poll
+          }
+        }
+
+        // 2) إضافة الجديد + تحديث الموجود
+        // نمر من الأقدم للأحدث (بما أن السيرفر رجّع تنازلياً، نعكس)
+        const ordered = [...serverEmails].reverse();
+        ordered.forEach(serverEmail => {
+          if (!currentEmails.has(serverEmail.id)) {
+            // جديد
+            if (!pendingAdds.has(serverEmail.id)) {
+              pendingAdds.add(serverEmail.id);
+              appendEmailRow(serverEmail, false);
+              pendingAdds.delete(serverEmail.id);
+            }
+          } else {
+            // موجود — تحقق لو الإيميل تغيّر (نادراً)
+            const old = currentEmails.get(serverEmail.id);
+            if (old.email !== serverEmail.email) {
+              updateEmailRow(serverEmail.id, serverEmail.email);
+            }
+          }
+        });
+
+        // 3) الترتيب مضمون لأننا نضيف بالأحدث في النهاية — لكن نضمن الترتيب
+        //    في حال أضفنا بشكل غير مرتب. لا نحتاج فعلاً لأننا نضيف للأخير.
+      }
+
+      // ============ بناء سطر ============
+      function buildRow(emailObj) {
+        const row = document.createElement('div');
+        row.className = 'email-row';
+        row.dataset.id = emailObj.id;
+        row.innerHTML = `
+          <div class="email-text">${escapeHtml(emailObj.email)}</div>
+          <div class="row-btns">
+            <button class="copy-btn">نسخ</button>
+            <button class="done-btn">تم</button>
+          </div>
+        `;
+        row.querySelector('.copy-btn').addEventListener('click', () => copyText(emailObj.email));
+        row.querySelector('.done-btn').addEventListener('click', () => deleteEmail(emailObj.id, row));
+        return row;
+      }
+
+      function appendEmailRow(emailObj, animate = true) {
+        if (!emailObj || !emailObj.id) return;
+        if (currentEmails.has(emailObj.id)) return;
+
+        currentEmails.set(emailObj.id, emailObj);
+
+        const emptyEl = listEl.querySelector('.empty');
+        if (emptyEl) emptyEl.remove();
+
+        const row = buildRow(emailObj);
+        // نضيف في الأعلى (الأحدث فوق) — لأن created_at تنازلي
+        listEl.prepend(row);
+
+        if (animate) {
+          row.style.opacity = '0';
+          row.style.transform = 'translateY(-10px)';
+          requestAnimationFrame(() => {
+            row.style.opacity = '1';
+            row.style.transform = 'translateY(0)';
+          });
+        }
+      }
+
+      function updateEmailRow(id, newEmail) {
+        const row = listEl.querySelector(`.email-row[data-id="${id}"]`);
+        if (!row) return;
+        row.querySelector('.email-text').textContent = newEmail;
+        currentEmails.set(id, { ...currentEmails.get(id), email: newEmail });
+        // تحديث معالج النسخ
+        const btn = row.querySelector('.copy-btn');
+        btn.replaceWith(btn.cloneNode(true));
+        row.querySelector('.copy-btn').addEventListener('click', () => copyText(newEmail));
+      }
+
+      function removeEmailRow(id, animate = true) {
+        currentEmails.delete(id);
+        const row = listEl.querySelector(`.email-row[data-id="${id}"]`);
+        if (!row) {
+          if (!listEl.querySelectorAll('.email-row').length) {
+            listEl.innerHTML = '<p class="empty">لا توجد إيميلات بعد</p>';
+          }
           return;
         }
-        emails.forEach(e => {
-          const row = document.createElement('div');
-          row.className = 'email-row';
-          row.innerHTML = `
-            <div class="email-text">${escapeHtml(e.email)}</div>
-            <div class="row-btns">
-              <button class="copy-btn">نسخ</button>
-              <button class="done-btn">تم</button>
-            </div>
-          `;
-          row.querySelector('.copy-btn').addEventListener('click', () => copyText(e.email));
-          row.querySelector('.done-btn').addEventListener('click', () => deleteEmail(e.id, row));
-          list.appendChild(row);
-        });
+        if (animate) {
+          row.style.opacity = '0';
+          row.style.transform = 'translateX(-30px)';
+          setTimeout(() => {
+            row.remove();
+            if (!listEl.querySelectorAll('.email-row').length) {
+              listEl.innerHTML = '<p class="empty">لا توجد إيميلات بعد</p>';
+            }
+          }, 250);
+        } else {
+          row.remove();
+          if (!listEl.querySelectorAll('.email-row').length) {
+            listEl.innerHTML = '<p class="empty">لا توجد إيميلات بعد</p>';
+          }
+        }
       }
 
       // ============ إضافة ============
@@ -233,12 +314,12 @@
       document.getElementById('submitBtn').addEventListener('click', async () => {
         const val = emailInput.value.trim();
         if (!val) { emailInput.focus(); return; }
-
         const ok = await addEmail(val);
         if (ok) {
-          emailInput.value = '';      // ينظف
-          modal.classList.remove('show'); // يقفل
-          loadEmails();               // يحدّث القائمة
+          emailInput.value = '';
+          modal.classList.remove('show');
+          // Polling سيجلب السطر الجديد خلال 250ms
+          fetchEmails();
         }
       });
 
@@ -248,25 +329,21 @@
 
       // ============ حذف ============
       async function deleteEmail(id, row) {
+        // نخفي فوراً للاستجابة السريعة
         row.style.opacity = '0';
         row.style.transform = 'translateX(-30px)';
-
-        setTimeout(async () => {
-          if (!supabase) { row.remove(); return; }
-          try {
-            const { error } = await supabase.from('emails').delete().eq('id', id);
-            if (error) throw error;
-            row.remove();
-            if (!document.querySelectorAll('.email-row').length) {
-              document.getElementById('list').innerHTML = '<p class="empty">لا توجد إيميلات بعد</p>';
-            }
-          } catch (err) {
-            console.error('Delete error:', err);
-            row.style.opacity = '1';
-            row.style.transform = '';
-            showToast('فشل الحذف: ' + (err.message || ''));
-          }
-        }, 250);
+        try {
+          if (!supabase) throw new Error('no supabase');
+          const { error } = await supabase.from('emails').delete().eq('id', id);
+          if (error) throw error;
+          removeEmailRow(id, false);
+          fetchEmails();
+        } catch (err) {
+          console.error('Delete error:', err);
+          row.style.opacity = '1';
+          row.style.transform = '';
+          showToast('فشل الحذف: ' + (err.message || ''));
+        }
       }
 
       // ============ نسخ ============
@@ -287,26 +364,16 @@
 
       // ============ زر التنبيه ============
       document.getElementById('alertBtn').addEventListener('click', async () => {
-        if (!alertChannel) {
-          showToast('التنبيهات غير متاحة');
-          return;
-        }
-        if (!channelReady) {
-          showToast('جارٍ الاتصال... حاول مرة أخرى');
-          return;
-        }
+        if (!alertChannel) { showToast('التنبيهات غير متاحة'); return; }
+        if (!channelReady) { showToast('جارٍ الاتصال... حاول مرة أخرى'); return; }
         try {
           const res = await alertChannel.send({
             type: 'broadcast',
             event: 'alert',
             payload: { message: 'اقبل الطلب' }
           });
-          console.log('send result:', res);
-          if (res === 'ok') {
-            showToast('تم إرسال التنبيه لكل المستخدمين ✅');
-          } else {
-            showToast('فشل الإرسال، حاول مرة أخرى');
-          }
+          if (res === 'ok') showToast('تم إرسال التنبيه لكل المستخدمين ✅');
+          else showToast('فشل الإرسال، حاول مرة أخرى');
         } catch (err) {
           console.error('Send error:', err);
           showToast('فشل إرسال التنبيه');
@@ -320,9 +387,16 @@
         }[c]));
       }
 
-      // ============ بدء ============
-      loadEmails();
-    }); // نهاية window.load
+      // ============ بدء الـ Polling ============
+      fetchEmails(); // أول مرة فوراً
+      setInterval(fetchEmails, POLL_INTERVAL_MS);
+
+      // Polling إضافي عند رجوع التبويب للواجهة (المتصفح يوقف setInterval في الخلفية أحياناً)
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) fetchEmails();
+      });
+      window.addEventListener('focus', fetchEmails);
+    });
   </script>
 </body>
 </html>
