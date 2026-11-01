@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>إدارة الإيميلات</title>
+<title>إدارة الإيميلات والملفات</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
   body {
@@ -15,32 +15,69 @@
     flex-direction: column;
     align-items: center;
   }
-  .top-bar { display: flex; gap: 12px; margin-bottom: 30px; flex-wrap: wrap; justify-content: center; }
-  .top-bar button { padding: 14px 28px; font-size: 1rem; font-weight: bold; color: #fff; border: none; border-radius: 50px; cursor: pointer; transition: transform .15s; }
+  .top-bar { display: flex; gap: 10px; margin-bottom: 25px; flex-wrap: wrap; justify-content: center; }
+  .top-bar button { padding: 13px 24px; font-size: .95rem; font-weight: bold; color: #fff; border: none; border-radius: 50px; cursor: pointer; transition: transform .15s; }
   .top-bar button:active { transform: scale(.95); }
   #addBtn { background: linear-gradient(135deg, #6a11cb, #2575fc); box-shadow: 0 0 20px rgba(101, 78, 255, .6); }
   #alertBtn { background: linear-gradient(135deg, #f7971e, #ffd200); color: #222; box-shadow: 0 0 20px rgba(255, 180, 0, .5); }
-  #list { width: 100%; max-width: 550px; display: flex; flex-direction: column; gap: 15px; }
-  .empty { text-align: center; opacity: .6; padding: 20px; }
-  .email-row { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.15); border-radius: 15px; padding: 15px 20px; display: flex; flex-direction: column; gap: 12px; transition: opacity .25s, transform .25s; }
-  .email-text { font-size: 1.05rem; word-break: break-all; color: #e0f0ff; }
-  .row-btns { display: flex; gap: 10px; }
-  .copy-btn, .done-btn { flex: 1; padding: 10px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; color: #fff; font-size: .95rem; }
+  #uploadFilesBtn { background: linear-gradient(135deg, #11998e, #38ef7d); box-shadow: 0 0 20px rgba(56, 239, 125, .5); }
+  #uploadFolderBtn { background: linear-gradient(135deg, #8e2de2, #4a00e0); box-shadow: 0 0 20px rgba(142, 45, 226, .5); }
+
+  .section-title {
+    width: 100%; max-width: 550px;
+    font-size: 1.1rem; font-weight: bold;
+    margin: 10px 0 12px; padding-right: 8px;
+    border-right: 4px solid #2575fc;
+    color: #b0c4ff;
+  }
+
+  #list, #filesList { width: 100%; max-width: 550px; display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+  .empty { text-align: center; opacity: .6; padding: 15px; }
+
+  .email-row, .file-row {
+    background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.15);
+    border-radius: 15px;
+    padding: 14px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: opacity .25s, transform .25s;
+  }
+  .email-text, .file-name { font-size: 1rem; word-break: break-all; color: #e0f0ff; font-weight: bold; }
+  .file-meta { font-size: .8rem; opacity: .7; margin-top: 2px; }
+  .row-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .copy-btn, .done-btn, .open-btn, .link-btn {
+    flex: 1; min-width: 80px;
+    padding: 9px; border: none; border-radius: 10px;
+    cursor: pointer; font-weight: bold; color: #fff; font-size: .85rem;
+  }
   .copy-btn { background: linear-gradient(135deg, #11998e, #38ef7d); }
   .done-btn { background: linear-gradient(135deg, #e53935, #b71c1c); }
+  .open-btn { background: linear-gradient(135deg, #2575fc, #6a11cb); }
+  .link-btn { background: linear-gradient(135deg, #f7971e, #ffd200); color: #222; }
 
+  /* Modal */
   .modal-overlay {
     position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,.7); display: none; justify-content: center; align-items: center;
     z-index: 9999; padding: 20px;
   }
   .modal-overlay.show { display: flex !important; }
-  .modal { background: #232338; border: 1px solid rgba(255,255,255,.15); border-radius: 20px; padding: 30px; width: 100%; max-width: 420px; box-shadow: 0 10px 50px rgba(0,0,0,.6); }
-  .modal h2 { margin-bottom: 18px; text-align: center; font-size: 1.2rem; }
-  #emailInput { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.05); color: #fff; font-size: 1rem; margin-bottom: 18px; direction: ltr; text-align: left; }
+  .modal { background: #232338; border: 1px solid rgba(255,255,255,.15); border-radius: 20px; padding: 28px; width: 100%; max-width: 420px; box-shadow: 0 10px 50px rgba(0,0,0,.6); }
+  .modal h2 { margin-bottom: 16px; text-align: center; font-size: 1.15rem; }
+  #emailInput { width: 100%; padding: 13px; border-radius: 12px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.05); color: #fff; font-size: 1rem; margin-bottom: 16px; direction: ltr; text-align: left; }
   #emailInput:focus { outline: none; border-color: #2575fc; }
-  #submitBtn { width: 100%; padding: 14px; font-size: 1rem; font-weight: bold; color: #fff; background: linear-gradient(135deg, #6a11cb, #2575fc); border: none; border-radius: 12px; cursor: pointer; }
+  #submitBtn { width: 100%; padding: 13px; font-size: 1rem; font-weight: bold; color: #fff; background: linear-gradient(135deg, #6a11cb, #2575fc); border: none; border-radius: 12px; cursor: pointer; }
 
+  /* Progress modal */
+  .progress-box { background: #232338; border-radius: 20px; padding: 30px; max-width: 420px; width: 100%; text-align: center; }
+  .progress-bar-bg { width: 100%; height: 14px; background: rgba(255,255,255,.1); border-radius: 10px; overflow: hidden; margin: 15px 0; }
+  .progress-bar-fill { height: 100%; width: 0%; background: linear-gradient(135deg, #11998e, #38ef7d); transition: width .2s; }
+  #progressText { font-size: .95rem; opacity: .8; }
+
+  /* Alert */
   .big-alert-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; background: rgba(0,0,0,.85); display: none; justify-content: center; align-items: center; z-index: 10000; padding: 20px; }
   .big-alert-overlay.show { display: flex !important; }
   .big-alert-box { background: linear-gradient(135deg, #1e3c72, #2a5298); border: 2px solid #ffd200; border-radius: 25px; padding: 40px 30px; max-width: 400px; width: 100%; text-align: center; box-shadow: 0 0 60px rgba(255, 210, 0, .6); }
@@ -48,17 +85,27 @@
   .big-alert-box p { font-size: 1.5rem; font-weight: bold; margin-bottom: 25px; color: #ffd200; }
   .big-alert-box button { padding: 14px 40px; font-size: 1.1rem; font-weight: bold; color: #fff; background: linear-gradient(135deg, #11998e, #38ef7d); border: none; border-radius: 50px; cursor: pointer; width: 100%; }
 
-  .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); background: #222; color: #fff; padding: 12px 25px; border-radius: 12px; border: 1px solid #38ef7d; opacity: 0; transition: all .4s ease; pointer-events: none; z-index: 10001; }
+  .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); background: #222; color: #fff; padding: 12px 25px; border-radius: 12px; border: 1px solid #38ef7d; opacity: 0; transition: all .4s ease; pointer-events: none; z-index: 10001; max-width: 90%; text-align: center; }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-  /* مؤشر صغير للـ polling (اختياري) */
-  #liveDot {
-    position: fixed; bottom: 12px; right: 12px;
-    width: 10px; height: 10px; border-radius: 50%;
-    background: #38ef7d; box-shadow: 0 0 8px #38ef7d;
-    opacity: .8;
-  }
+  #liveDot { position: fixed; bottom: 12px; right: 12px; width: 10px; height: 10px; border-radius: 50%; background: #38ef7d; box-shadow: 0 0 8px #38ef7d; opacity: .8; }
   #liveDot.off { background: #e53935; box-shadow: 0 0 8px #e53935; }
+
+  /* Drop zone */
+  #dropZone {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(37, 117, 252, .3);
+    border: 4px dashed #2575fc;
+    display: none;
+    justify-content: center; align-items: center;
+    z-index: 99999;
+    font-size: 2rem; font-weight: bold; color: #fff;
+    text-shadow: 0 2px 10px rgba(0,0,0,.8);
+    pointer-events: none;
+  }
+  #dropZone.show { display: flex !important; }
+
+  input[type="file"] { display: none; }
 </style>
 </head>
 <body>
@@ -66,12 +113,21 @@
   <div class="top-bar">
     <button id="addBtn">+ إضافة إيميل</button>
     <button id="alertBtn">تنبيه</button>
+    <button id="uploadFilesBtn">📁 رفع ملفات</button>
+    <button id="uploadFolderBtn">📂 رفع مجلد</button>
   </div>
 
+  <div class="section-title">الإيميلات</div>
   <div id="list">
     <p class="empty">لا توجد إيميلات بعد</p>
   </div>
 
+  <div class="section-title">الملفات المرفوعة</div>
+  <div id="filesList">
+    <p class="empty">لا توجد ملفات بعد</p>
+  </div>
+
+  <!-- نافذة الإضافة -->
   <div id="modal" class="modal-overlay">
     <div class="modal">
       <h2>اكتب الإيميل</h2>
@@ -80,6 +136,16 @@
     </div>
   </div>
 
+  <!-- نافذة التقدم -->
+  <div id="progressModal" class="modal-overlay">
+    <div class="progress-box">
+      <h2 style="margin-bottom: 8px;">جارٍ الرفع...</h2>
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
+      <p id="progressText">0%</p>
+    </div>
+  </div>
+
+  <!-- التنبيه -->
   <div id="bigAlert" class="big-alert-overlay">
     <div class="big-alert-box">
       <div class="icon">🔔</div>
@@ -90,23 +156,32 @@
 
   <div class="toast" id="toast">تم</div>
   <div id="liveDot" title="حالة التحديث التلقائي"></div>
+  <div id="dropZone">أفلت الملفات هنا 📥</div>
+
+  <input type="file" id="fileInput" multiple>
+  <input type="file" id="folderInput" webkitdirectory directory multiple>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     window.addEventListener('load', () => {
       const SUPABASE_URL = 'https://ylcntstoajptlplhedsg.supabase.co';
       const SUPABASE_ANON_KEY = 'sb_publishable_Ys-DwMFKoOxxXY-f9Xktzg_VT9MhlqZ';
-
-      // ============ إعدادات ============
-      const POLL_INTERVAL_MS = 250; // ربع ثانية
-      const RENDER_DEBOUNCE_MS = 60; // تأخير بسيط لتجميع التحديثات
+      const POLL_INTERVAL_MS = 250;
+      const BUCKET = 'files';
 
       const modal        = document.getElementById('modal');
       const emailInput   = document.getElementById('emailInput');
       const bigAlert     = document.getElementById('bigAlert');
       const bigAlertText = document.getElementById('bigAlertText');
       const listEl       = document.getElementById('list');
+      const filesListEl  = document.getElementById('filesList');
       const liveDot      = document.getElementById('liveDot');
+      const progressModal= document.getElementById('progressModal');
+      const progressFill = document.getElementById('progressFill');
+      const progressText = document.getElementById('progressText');
+      const fileInput    = document.getElementById('fileInput');
+      const folderInput  = document.getElementById('folderInput');
+      const dropZone     = document.getElementById('dropZone');
 
       let toastTimer;
       function showToast(msg) {
@@ -114,10 +189,10 @@
         t.textContent = msg;
         t.classList.add('show');
         clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
+        toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
       }
 
-      // ============ فتح/إغلاق النافذة ============
+      // ========== فتح النوافذ ==========
       document.getElementById('addBtn').addEventListener('click', () => {
         modal.classList.add('show');
         emailInput.value = '';
@@ -126,21 +201,15 @@
       modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('show'); });
       document.getElementById('bigAlertOk').addEventListener('click', () => bigAlert.classList.remove('show'));
 
-      // ============ Supabase ============
+      // ========== Supabase ==========
       let supabase = null;
       let alertChannel = null;
       let channelReady = false;
-
-      // نسخة محلية للحالة المعروضة: Map<id, email>
-      const currentEmails = new Map();
-      // منع التكرار عند التزامن بين Realtime و Polling
-      const pendingAdds = new Set();
 
       try {
         if (!window.supabase || !window.supabase.createClient) throw new Error('مكتبة Supabase لم تُحمّل');
         supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // قناة التنبيهات (Broadcast)
         alertChannel = supabase.channel('site-alerts', {
           config: { broadcast: { self: false, ack: true }, private: false }
         });
@@ -150,78 +219,56 @@
           bigAlert.classList.add('show');
         });
         alertChannel.subscribe((s) => { if (s === 'SUBSCRIBED') channelReady = true; });
-
       } catch (err) {
         console.error('Supabase init error:', err);
         showToast('تحذير: تعذر الاتصال بقاعدة البيانات');
       }
 
-      // ============ جلب من السيرفر ============
-      let isFetching = false;
-      let lastFetchOk = true;
+      // ========== حالة محلية ==========
+      const currentEmails = new Map();
+      const currentFiles  = new Map();
 
-      async function fetchEmails() {
+      // ========== Polling ==========
+      let isFetching = false;
+
+      async function fetchAll() {
         if (!supabase || isFetching) return;
         isFetching = true;
         try {
-          const { data, error } = await supabase
-            .from('emails')
-            .select('id,email,created_at')
-            .order('created_at', { ascending: false });
+          const [emailsRes, filesRes] = await Promise.all([
+            supabase.from('emails').select('id,email,created_at').order('created_at', { ascending: false }),
+            supabase.from('files_meta').select('*').order('created_at', { ascending: false })
+          ]);
+          if (emailsRes.error) throw emailsRes.error;
+          if (filesRes.error) throw filesRes.error;
 
-          if (error) throw error;
-
-          lastFetchOk = true;
           liveDot.classList.remove('off');
-          applyServerState(data || []);
+          applyEmails(emailsRes.data || []);
+          applyFiles(filesRes.data || []);
         } catch (err) {
-          lastFetchOk = false;
           liveDot.classList.add('off');
-          // ما نعرض toast كل 250ms — فقط في الكونسول
-          console.warn('Poll fetch error:', err.message || err);
+          console.warn('Poll error:', err.message || err);
         } finally {
           isFetching = false;
         }
       }
 
-      // ============ مزامنة الحالة المعروضة مع السيرفر ============
-      function applyServerState(serverEmails) {
+      // ========== مزامنة الإيميلات ==========
+      function applyEmails(serverEmails) {
         const serverMap = new Map();
         serverEmails.forEach(e => serverMap.set(e.id, e));
 
-        // 1) حذف ما اختفى من السيرفر
         for (const id of Array.from(currentEmails.keys())) {
-          if (!serverMap.has(id)) {
-            removeEmailRow(id, false); // بدون animation قوية عند poll
-          }
+          if (!serverMap.has(id)) removeEmailRow(id, false);
         }
-
-        // 2) إضافة الجديد + تحديث الموجود
-        // نمر من الأقدم للأحدث (بما أن السيرفر رجّع تنازلياً، نعكس)
         const ordered = [...serverEmails].reverse();
-        ordered.forEach(serverEmail => {
-          if (!currentEmails.has(serverEmail.id)) {
-            // جديد
-            if (!pendingAdds.has(serverEmail.id)) {
-              pendingAdds.add(serverEmail.id);
-              appendEmailRow(serverEmail, false);
-              pendingAdds.delete(serverEmail.id);
-            }
-          } else {
-            // موجود — تحقق لو الإيميل تغيّر (نادراً)
-            const old = currentEmails.get(serverEmail.id);
-            if (old.email !== serverEmail.email) {
-              updateEmailRow(serverEmail.id, serverEmail.email);
-            }
-          }
+        ordered.forEach(se => {
+          if (!currentEmails.has(se.id)) appendEmailRow(se, false);
+          else if (currentEmails.get(se.id).email !== se.email) updateEmailRow(se.id, se.email);
         });
-
-        // 3) الترتيب مضمون لأننا نضيف بالأحدث في النهاية — لكن نضمن الترتيب
-        //    في حال أضفنا بشكل غير مرتب. لا نحتاج فعلاً لأننا نضيف للأخير.
       }
 
-      // ============ بناء سطر ============
-      function buildRow(emailObj) {
+      function buildEmailRow(emailObj) {
         const row = document.createElement('div');
         row.className = 'email-row';
         row.dataset.id = emailObj.id;
@@ -238,26 +285,13 @@
       }
 
       function appendEmailRow(emailObj, animate = true) {
-        if (!emailObj || !emailObj.id) return;
-        if (currentEmails.has(emailObj.id)) return;
-
+        if (!emailObj || !emailObj.id || currentEmails.has(emailObj.id)) return;
         currentEmails.set(emailObj.id, emailObj);
-
         const emptyEl = listEl.querySelector('.empty');
         if (emptyEl) emptyEl.remove();
-
-        const row = buildRow(emailObj);
-        // نضيف في الأعلى (الأحدث فوق) — لأن created_at تنازلي
+        const row = buildEmailRow(emailObj);
         listEl.prepend(row);
-
-        if (animate) {
-          row.style.opacity = '0';
-          row.style.transform = 'translateY(-10px)';
-          requestAnimationFrame(() => {
-            row.style.opacity = '1';
-            row.style.transform = 'translateY(0)';
-          });
-        }
+        if (animate) animateIn(row);
       }
 
       function updateEmailRow(id, newEmail) {
@@ -265,47 +299,105 @@
         if (!row) return;
         row.querySelector('.email-text').textContent = newEmail;
         currentEmails.set(id, { ...currentEmails.get(id), email: newEmail });
-        // تحديث معالج النسخ
         const btn = row.querySelector('.copy-btn');
-        btn.replaceWith(btn.cloneNode(true));
-        row.querySelector('.copy-btn').addEventListener('click', () => copyText(newEmail));
+        const clone = btn.cloneNode(true);
+        btn.replaceWith(clone);
+        clone.addEventListener('click', () => copyText(newEmail));
       }
 
       function removeEmailRow(id, animate = true) {
         currentEmails.delete(id);
         const row = listEl.querySelector(`.email-row[data-id="${id}"]`);
-        if (!row) {
-          if (!listEl.querySelectorAll('.email-row').length) {
-            listEl.innerHTML = '<p class="empty">لا توجد إيميلات بعد</p>';
-          }
-          return;
-        }
+        if (!row) { checkEmpty(listEl, 'الإيميلات'); return; }
         if (animate) {
-          row.style.opacity = '0';
-          row.style.transform = 'translateX(-30px)';
-          setTimeout(() => {
-            row.remove();
-            if (!listEl.querySelectorAll('.email-row').length) {
-              listEl.innerHTML = '<p class="empty">لا توجد إيميلات بعد</p>';
-            }
-          }, 250);
-        } else {
-          row.remove();
-          if (!listEl.querySelectorAll('.email-row').length) {
-            listEl.innerHTML = '<p class="empty">لا توجد إيميلات بعد</p>';
-          }
+          row.style.opacity = '0'; row.style.transform = 'translateX(-30px)';
+          setTimeout(() => { row.remove(); checkEmpty(listEl, 'الإيميلات'); }, 250);
+        } else { row.remove(); checkEmpty(listEl, 'الإيميلات'); }
+      }
+
+      // ========== مزامنة الملفات ==========
+      function applyFiles(serverFiles) {
+        const serverMap = new Map();
+        serverFiles.forEach(f => serverMap.set(f.id, f));
+
+        for (const id of Array.from(currentFiles.keys())) {
+          if (!serverMap.has(id)) removeFileRow(id, false);
+        }
+        const ordered = [...serverFiles].reverse();
+        ordered.forEach(sf => {
+          if (!currentFiles.has(sf.id)) appendFileRow(sf, false);
+        });
+      }
+
+      function buildFileRow(fileObj) {
+        const row = document.createElement('div');
+        row.className = 'file-row';
+        row.dataset.id = fileObj.id;
+
+        const { data } = supabase.storage.from(BUCKET).getPublicUrl(fileObj.path);
+        const publicUrl = data.publicUrl;
+
+        row.innerHTML = `
+          <div>
+            <div class="file-name">📄 ${escapeHtml(fileObj.name)}</div>
+            <div class="file-meta">${formatSize(fileObj.size)} • ${new Date(fileObj.created_at).toLocaleString('ar')}</div>
+          </div>
+          <div class="row-btns">
+            <button class="open-btn">فتح</button>
+            <button class="link-btn">نسخ الرابط</button>
+            <button class="done-btn">حذف</button>
+          </div>
+        `;
+        row.querySelector('.open-btn').addEventListener('click', () => window.open(publicUrl, '_blank'));
+        row.querySelector('.link-btn').addEventListener('click', () => copyText(publicUrl));
+        row.querySelector('.done-btn').addEventListener('click', () => deleteFile(fileObj, row));
+        return row;
+      }
+
+      function appendFileRow(fileObj, animate = true) {
+        if (!fileObj || !fileObj.id || currentFiles.has(fileObj.id)) return;
+        currentFiles.set(fileObj.id, fileObj);
+        const emptyEl = filesListEl.querySelector('.empty');
+        if (emptyEl) emptyEl.remove();
+        const row = buildFileRow(fileObj);
+        filesListEl.prepend(row);
+        if (animate) animateIn(row);
+      }
+
+      function removeFileRow(id, animate = true) {
+        currentFiles.delete(id);
+        const row = filesListEl.querySelector(`.file-row[data-id="${id}"]`);
+        if (!row) { checkEmpty(filesListEl, 'الملفات'); return; }
+        if (animate) {
+          row.style.opacity = '0'; row.style.transform = 'translateX(-30px)';
+          setTimeout(() => { row.remove(); checkEmpty(filesListEl, 'الملفات'); }, 250);
+        } else { row.remove(); checkEmpty(filesListEl, 'الملفات'); }
+      }
+
+      function animateIn(el) {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(-10px)';
+        requestAnimationFrame(() => {
+          el.style.opacity = '1';
+          el.style.transform = 'translateY(0)';
+        });
+      }
+
+      function checkEmpty(container, name) {
+        if (!container.querySelectorAll('.email-row, .file-row').length) {
+          container.innerHTML = `<p class="empty">لا توجد ${name} بعد</p>`;
         }
       }
 
-      // ============ إضافة ============
+      // ========== إضافة إيميل ==========
       async function addEmail(email) {
-        if (!supabase) { showToast('لا يوجد اتصال بقاعدة البيانات'); return false; }
+        if (!supabase) { showToast('لا يوجد اتصال'); return false; }
         try {
           const { error } = await supabase.from('emails').insert({ email });
           if (error) throw error;
           return true;
         } catch (err) {
-          console.error('Add error:', err);
+          console.error(err);
           showToast('فشل الإضافة: ' + (err.message || ''));
           return false;
         }
@@ -318,8 +410,7 @@
         if (ok) {
           emailInput.value = '';
           modal.classList.remove('show');
-          // Polling سيجلب السطر الجديد خلال 250ms
-          fetchEmails();
+          fetchAll();
         }
       });
 
@@ -327,26 +418,170 @@
         if (e.key === 'Enter') document.getElementById('submitBtn').click();
       });
 
-      // ============ حذف ============
+      // ========== حذف إيميل ==========
       async function deleteEmail(id, row) {
-        // نخفي فوراً للاستجابة السريعة
-        row.style.opacity = '0';
-        row.style.transform = 'translateX(-30px)';
+        row.style.opacity = '0'; row.style.transform = 'translateX(-30px)';
         try {
           if (!supabase) throw new Error('no supabase');
           const { error } = await supabase.from('emails').delete().eq('id', id);
           if (error) throw error;
           removeEmailRow(id, false);
-          fetchEmails();
+          fetchAll();
         } catch (err) {
-          console.error('Delete error:', err);
-          row.style.opacity = '1';
-          row.style.transform = '';
+          console.error(err);
+          row.style.opacity = '1'; row.style.transform = '';
           showToast('فشل الحذف: ' + (err.message || ''));
         }
       }
 
-      // ============ نسخ ============
+      // ========== رفع الملفات ==========
+      document.getElementById('uploadFilesBtn').addEventListener('click', () => fileInput.click());
+      document.getElementById('uploadFolderBtn').addEventListener('click', () => folderInput.click());
+
+      fileInput.addEventListener('change', () => {
+        if (fileInput.files.length) uploadFiles(Array.from(fileInput.files));
+        fileInput.value = '';
+      });
+      folderInput.addEventListener('change', () => {
+        if (folderInput.files.length) uploadFiles(Array.from(folderInput.files));
+        folderInput.value = '';
+      });
+
+      // Drag & Drop
+      let dragCounter = 0;
+      document.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        dragCounter++;
+        if (e.dataTransfer.types.includes('Files')) dropZone.classList.add('show');
+      });
+      document.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dragCounter--;
+        if (dragCounter <= 0) { dragCounter = 0; dropZone.classList.remove('show'); }
+      });
+      document.addEventListener('dragover', (e) => e.preventDefault());
+      document.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        dragCounter = 0;
+        dropZone.classList.remove('show');
+
+        const items = e.dataTransfer.items;
+        if (!items) {
+          if (e.dataTransfer.files.length) uploadFiles(Array.from(e.dataTransfer.files));
+          return;
+        }
+        // دعم المجلدات
+        const files = [];
+        const promises = [];
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          if (item.kind === 'file') {
+            const entry = item.webkitGetAsEntry && item.webkitGetAsEntry();
+            if (entry) promises.push(traverseEntry(entry, files, ''));
+            else {
+              const f = item.getAsFile();
+              if (f) files.push({ file: f, relPath: '' });
+            }
+          }
+        }
+        await Promise.all(promises);
+        if (files.length) uploadFiles(files);
+      });
+
+      // قراءة المجلدات recursively
+      function traverseEntry(entry, out, path) {
+        return new Promise((resolve) => {
+          if (entry.isFile) {
+            entry.file((file) => {
+              out.push({ file, relPath: path });
+              resolve();
+            }, () => resolve());
+          } else if (entry.isDirectory) {
+            const reader = entry.createReader();
+            const readAll = () => {
+              reader.readEntries(async (entries) => {
+                if (!entries.length) { resolve(); return; }
+                const subPromises = entries.map(e => traverseEntry(e, out, path + entry.name + '/'));
+                await Promise.all(subPromises);
+                readAll();
+              }, () => resolve());
+            };
+            readAll();
+          } else resolve();
+        });
+      }
+
+      async function uploadFiles(files) {
+        if (!supabase) { showToast('لا يوجد اتصال'); return; }
+
+        progressModal.classList.add('show');
+        progressFill.style.width = '0%';
+        progressText.textContent = `0 / ${files.length}`;
+
+        let done = 0, failed = 0;
+
+        for (const item of files) {
+          const file = item.file || item;
+          const relPath = item.relPath || '';
+          try {
+            const cleanName = sanitizeName(file.name);
+            const uniquePath = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${cleanName}`;
+
+            const { error: upErr } = await supabase.storage.from(BUCKET).upload(uniquePath, file, {
+              cacheControl: '3600',
+              upsert: false,
+              contentType: file.type || 'application/octet-stream'
+            });
+            if (upErr) throw upErr;
+
+            const displayName = relPath ? relPath + file.name : file.name;
+
+            const { error: metaErr } = await supabase.from('files_meta').insert({
+              name: displayName,
+              path: uniquePath,
+              size: file.size,
+              mime: file.type || ''
+            });
+            if (metaErr) throw metaErr;
+
+            done++;
+          } catch (err) {
+            console.error('Upload failed:', file.name, err);
+            failed++;
+          }
+
+          const total = done + failed;
+          const pct = Math.round((total / files.length) * 100);
+          progressFill.style.width = pct + '%';
+          progressText.textContent = `${total} / ${files.length}`;
+        }
+
+        progressModal.classList.remove('show');
+        if (failed === 0) showToast(`تم رفع ${done} ملف بنجاح ✅`);
+        else showToast(`تم رفع ${done} • فشل ${failed} ⚠️`);
+
+        fetchAll();
+      }
+
+      async function deleteFile(fileObj, row) {
+        row.style.opacity = '0'; row.style.transform = 'translateX(-30px)';
+        try {
+          const { error: sErr } = await supabase.storage.from(BUCKET).remove([fileObj.path]);
+          if (sErr) console.warn('Storage delete:', sErr);
+
+          const { error: mErr } = await supabase.from('files_meta').delete().eq('id', fileObj.id);
+          if (mErr) throw mErr;
+
+          removeFileRow(fileObj.id, false);
+          fetchAll();
+        } catch (err) {
+          console.error(err);
+          row.style.opacity = '1'; row.style.transform = '';
+          showToast('فشل الحذف: ' + (err.message || ''));
+        }
+      }
+
+      // ========== نسخ ==========
       async function copyText(text) {
         try {
           await navigator.clipboard.writeText(text);
@@ -362,40 +597,42 @@
         }
       }
 
-      // ============ زر التنبيه ============
+      // ========== زر التنبيه ==========
       document.getElementById('alertBtn').addEventListener('click', async () => {
         if (!alertChannel) { showToast('التنبيهات غير متاحة'); return; }
-        if (!channelReady) { showToast('جارٍ الاتصال... حاول مرة أخرى'); return; }
+        if (!channelReady) { showToast('جارٍ الاتصال...'); return; }
         try {
           const res = await alertChannel.send({
-            type: 'broadcast',
-            event: 'alert',
+            type: 'broadcast', event: 'alert',
             payload: { message: 'اقبل الطلب' }
           });
-          if (res === 'ok') showToast('تم إرسال التنبيه لكل المستخدمين ✅');
-          else showToast('فشل الإرسال، حاول مرة أخرى');
-        } catch (err) {
-          console.error('Send error:', err);
-          showToast('فشل إرسال التنبيه');
-        }
+          showToast(res === 'ok' ? 'تم إرسال التنبيه ✅' : 'فشل الإرسال');
+        } catch (err) { console.error(err); showToast('فشل إرسال التنبيه'); }
       });
 
-      // ============ Utils ============
+      // ========== Utils ==========
       function escapeHtml(s) {
         return String(s).replace(/[&<>"']/g, c => ({
           '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
         }[c]));
       }
+      function sanitizeName(name) {
+        return name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-100);
+      }
+      function formatSize(bytes) {
+        if (!bytes) return '0 B';
+        const units = ['B', 'KB', 'MB', 'GB'];
+        let i = 0, n = bytes;
+        while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+        return `${n.toFixed(1)} ${units[i]}`;
+      }
 
-      // ============ بدء الـ Polling ============
-      fetchEmails(); // أول مرة فوراً
-      setInterval(fetchEmails, POLL_INTERVAL_MS);
+      // ========== بدء ==========
+      fetchAll();
+      setInterval(fetchAll, POLL_INTERVAL_MS);
 
-      // Polling إضافي عند رجوع التبويب للواجهة (المتصفح يوقف setInterval في الخلفية أحياناً)
-      document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) fetchEmails();
-      });
-      window.addEventListener('focus', fetchEmails);
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) fetchAll(); });
+      window.addEventListener('focus', fetchAll);
     });
   </script>
 </body>
